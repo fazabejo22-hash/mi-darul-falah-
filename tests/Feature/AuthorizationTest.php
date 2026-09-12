@@ -14,7 +14,6 @@ class AuthorizationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Seed roles and permissions prior to authorization tests
         $this->seed(RolePermissionSeeder::class);
     }
 
@@ -30,7 +29,6 @@ class AuthorizationTest extends TestCase
         $student->assignRole('Siswa');
 
         $response = $this->actingAs($student)->get('/admin');
-        // FilamentUser canAccessPanel returns false for Siswa -> redirects or forbids
         $this->assertTrue($response->isForbidden() || $response->isRedirect());
     }
 
@@ -41,6 +39,17 @@ class AuthorizationTest extends TestCase
 
         $response = $this->actingAs($admin)->get('/admin');
         $response->assertStatus(200);
+    }
+
+    public function test_inactive_super_admin_is_denied_from_admin_panel(): void
+    {
+        $admin = User::factory()->create([
+            'is_active' => false,
+        ]);
+        $admin->assignRole('Super Admin');
+
+        $response = $this->actingAs($admin)->get('/admin');
+        $this->assertTrue($response->isForbidden() || $response->isRedirect());
     }
 
     public function test_password_is_properly_hashed(): void
