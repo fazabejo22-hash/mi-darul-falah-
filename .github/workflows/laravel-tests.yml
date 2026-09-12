@@ -62,9 +62,7 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Prepare Laravel environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate --force
+        run: cp .env.example .env
 
       - name: Show Laravel version
         run: php artisan --version
