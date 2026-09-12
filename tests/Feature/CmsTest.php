@@ -141,14 +141,14 @@ class CmsTest extends TestCase
 
         Livewire::actingAs($admin)
             ->test(ManageEvents::class)
-            ->callTableAction('create', data: [
+            ->callAction('create', data: [
                 'title' => 'Event Invalid',
                 'slug' => 'event-invalid',
                 'start_at' => now()->addDays(5)->toDateTimeString(),
                 'end_at' => now()->addDays(2)->toDateTimeString(),
                 'status' => 'published',
             ])
-            ->assertHasTableActionErrors(['end_at']);
+            ->assertHasActionErrors(['end_at']);
 
         $this->assertDatabaseMissing('events', ['slug' => 'event-invalid']);
     }
@@ -160,14 +160,14 @@ class CmsTest extends TestCase
 
         Livewire::actingAs($admin)
             ->test(ManageEvents::class)
-            ->callTableAction('create', data: [
+            ->callAction('create', data: [
                 'title' => 'Event Valid',
                 'slug' => 'event-valid',
                 'start_at' => now()->addDays(5)->toDateTimeString(),
                 'end_at' => now()->addDays(6)->toDateTimeString(),
                 'status' => 'published',
             ])
-            ->assertHasNoTableActionErrors();
+            ->assertHasNoActionErrors();
 
         $this->assertDatabaseHas('events', ['slug' => 'event-valid']);
     }
