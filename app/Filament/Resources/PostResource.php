@@ -17,7 +17,7 @@ class PostResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-newspaper';
     protected static ?string $navigationGroup = 'Website / CMS';
-    protected static ?string $navigationLabel = 'Berita / Post';
+    protected static ?string $navigationLabel = 'Berita & Artikel';
 
     public static function form(Form $form): Form
     {
@@ -46,6 +46,8 @@ class PostResource extends Resource
                     ->columnSpanFull(),
                 Forms\Components\FileUpload::make('featured_image')
                     ->image()
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->maxSize(5120)
                     ->directory('posts'),
                 Forms\Components\Select::make('status')
                     ->options([
@@ -53,15 +55,11 @@ class PostResource extends Resource
                         'published' => 'Published',
                     ])
                     ->required()
-                    ->default('draft'),
+                    ->default('published'),
                 Forms\Components\DateTimePicker::make('published_at'),
                 Forms\Components\Toggle::make('is_featured')
                     ->required()
                     ->default(false),
-                Forms\Components\TextInput::make('seo_title')
-                    ->maxLength(255),
-                Forms\Components\Textarea::make('seo_description')
-                    ->columnSpanFull(),
             ]);
     }
 
@@ -71,7 +69,7 @@ class PostResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('title')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('category.name')->sortable(),
-                Tables\Columns\TextColumn::make('author.name')->label('Author'),
+                Tables\Columns\TextColumn::make('author.name')->label('Penulis'),
                 Tables\Columns\BadgeColumn::make('status')
                     ->colors([
                         'danger' => 'draft',
@@ -86,9 +84,7 @@ class PostResource extends Resource
                         'draft' => 'Draft',
                         'published' => 'Published',
                     ]),
-                Tables\Filters\SelectFilter::make('post_category_id')
-                    ->relationship('category', 'name')
-                    ->label('Kategori'),
+                Tables\Filters\TernaryFilter::make('is_featured'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -110,21 +106,37 @@ class PostResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->hasRole('Kepala Madrasah') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU', 'Kepala Madrasah']) || $user->can('manage-website');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU']) || $user->can('manage-website');
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU']) || $user->can('manage-website');
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasRole('Super Admin') || $user->can('manage-website');
     }
 }

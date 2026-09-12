@@ -9,7 +9,6 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
 
 class AnnouncementResource extends Resource
 {
@@ -25,25 +24,16 @@ class AnnouncementResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('title')
                     ->required()
-                    ->maxLength(255)
-                    ->live(onBlur: true)
-                    ->afterStateUpdated(fn (string $operation, $state, Forms\Set $set) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                Forms\Components\TextInput::make('slug')
-                    ->maxLength(255)
-                    ->unique(ignoreRecord: true),
-                Forms\Components\Hidden::make('created_by')
-                    ->default(fn () => auth()->id()),
+                    ->maxLength(255),
                 Forms\Components\RichEditor::make('content')
                     ->required()
                     ->columnSpanFull(),
                 Forms\Components\DateTimePicker::make('start_at'),
-                Forms\Components\DateTimePicker::make('end_at'),
+                Forms\Components\DateTimePicker::make('end_at')
+                    ->afterOrEqual('start_at'),
                 Forms\Components\Toggle::make('is_active')
                     ->required()
                     ->default(true),
-                Forms\Components\Toggle::make('is_pinned')
-                    ->required()
-                    ->default(false),
             ]);
     }
 
@@ -53,14 +43,11 @@ class AnnouncementResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('title')->searchable()->sortable(),
                 Tables\Columns\IconColumn::make('is_active')->boolean(),
-                Tables\Columns\IconColumn::make('is_pinned')->boolean(),
                 Tables\Columns\TextColumn::make('start_at')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('end_at')->dateTime()->sortable(),
-                Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active'),
-                Tables\Filters\TernaryFilter::make('is_pinned'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -82,21 +69,37 @@ class AnnouncementResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->hasRole('Kepala Madrasah') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU', 'Kepala Madrasah']) || $user->can('manage-website');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU']) || $user->can('manage-website');
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU']) || $user->can('manage-website');
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasRole('Super Admin') || $user->can('manage-website');
     }
 }

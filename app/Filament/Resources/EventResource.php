@@ -40,11 +40,13 @@ class EventResource extends Resource
                     ->required(),
                 Forms\Components\DateTimePicker::make('end_at')
                     ->required()
-                    ->after('start_at'),
+                    ->afterOrEqual('start_at'),
                 Forms\Components\RichEditor::make('description')
                     ->columnSpanFull(),
                 Forms\Components\FileUpload::make('featured_image')
                     ->image()
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->maxSize(5120)
                     ->directory('events'),
                 Forms\Components\Select::make('status')
                     ->options([
@@ -97,21 +99,37 @@ class EventResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->hasRole('Kepala Madrasah') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU', 'Kepala Madrasah']) || $user->can('manage-website');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU']) || $user->can('manage-website');
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU']) || $user->can('manage-website');
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasRole('Super Admin') || $user->can('manage-website');
     }
 }

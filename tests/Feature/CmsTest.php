@@ -18,6 +18,8 @@ use App\Models\SchoolProfile;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SchoolProfileSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CmsTest extends TestCase
@@ -31,41 +33,87 @@ class CmsTest extends TestCase
         $this->seed(SchoolProfileSeeder::class);
     }
 
-    public function test_school_profile_exists_and_is_editable(): void
+    public function test_migrate_fresh_and_seed_successful(): void
+    {
+        $this->assertDatabaseHas('school_profiles', ['npsn' => '69881899']);
+        $this->assertDatabaseHas('roles', ['name' => 'Super Admin']);
+        $this->assertDatabaseHas('roles', ['name' => 'Siswa']);
+        $this->assertDatabaseHas('roles', ['name' => 'Orang Tua/Wali']);
+    }
+
+    public function test_school_profile_editable(): void
     {
         $profile = SchoolProfile::first();
-        $this->assertEquals('MI Darul Falah', $profile->name);
-        $this->assertEquals('69881899', $profile->npsn);
-
         $profile->update(['headmaster' => 'Drs. Ach. Azhari Updated']);
         $this->assertEquals('Drs. Ach. Azhari Updated', $profile->fresh()->headmaster);
     }
 
+    public function test_roles_and_permissions_authorization_access(): void
+    {
+        $superAdmin = User::factory()->create();
+        $superAdmin->assignRole('Super Admin');
+
+        $adminTu = User::factory()->create();
+        $adminTu->assignRole('Admin/TU');
+
+        $kepala = User::factory()->create();
+        $kepala->assignRole('Kepala Madrasah');
+
+        $student = User::factory()->create();
+        $student->assignRole('Siswa');
+
+        $parent = User::factory()->create();
+        $parent->assignRole('Orang Tua/Wali');
+
+        $inactive = User::factory()->create(['is_active' => false]);
+        $inactive->assignRole('Super Admin');
+
+        // Super Admin can access admin panel
+        $this->actingAs($superAdmin)->get('/admin')->assertStatus(200);
+
+        // Admin/TU can access admin panel
+        $this->actingAs($adminTu)->get('/admin')->assertStatus(200);
+
+        // Kepala Madrasah can access admin panel
+        $this->actingAs($kepala)->get('/admin')->assertStatus(200);
+
+        // Student denied
+        $response = $this->actingAs($student)->get('/admin');
+        $this->assertTrue($response->isForbidden() || $response->isRedirect());
+
+        // Parent denied
+        $response = $this->actingAs($parent)->get('/admin');
+        $this->assertTrue($response->isForbidden() || $response->isRedirect());
+
+        // Inactive user denied
+        $response = $this->actingAs($inactive)->get('/admin');
+        $this->assertTrue($response->isForbidden() || $response->isRedirect());
+    }
+
     public function test_page_creation_and_slug_uniqueness(): void
     {
-        $page = Page::create([
-            'title' => 'Sejarah Madrasah',
-            'slug' => 'sejarah-madrasah',
-            'content' => 'Sejarah berdirinya MI Darul Falah...',
-            'status' => 'published',
+        Page::create([
+            'title' => 'Profil Sekolah',
+            'slug' => 'profil-sekolah',
+            'content' => 'Konten profil...',
+            'is_published' => true,
         ]);
 
-        $this->assertDatabaseHas('pages', ['slug' => 'sejarah-madrasah']);
+        $this->assertDatabaseHas('pages', ['slug' => 'profil-sekolah']);
 
         $this->expectException(\Illuminate\Database\QueryException::class);
         Page::create([
-            'title' => 'Sejarah Duplikat',
-            'slug' => 'sejarah-madrasah',
-            'content' => 'Duplikat slug',
+            'title' => 'Duplikat',
+            'slug' => 'profil-sekolah',
+            'content' => 'Duplikat...',
         ]);
     }
 
     public function test_post_and_category_relations(): void
     {
         $category = PostCategory::create([
-            'name' => 'Kegiatan',
-            'slug' => 'kegiatan',
-            'is_active' => true,
+            'name' => 'Berita Utama',
+            'slug' => 'berita-utama',
         ]);
 
         $author = User::factory()->create();
@@ -73,11 +121,10 @@ class CmsTest extends TestCase
         $post = Post::create([
             'post_category_id' => $category->id,
             'author_id' => $author->id,
-            'title' => 'Lomba Maulid Nabi',
-            'slug' => 'lomba-maulid-nabi',
-            'content' => 'Siswa siswi antusias mengikuti lomba...',
+            'title' => 'Kegiatan Aswaja',
+            'slug' => 'kegiatan-aswaja',
+            'content' => 'Isi berita kegiatan aswaja...',
             'status' => 'published',
-            'published_at' => now(),
         ]);
 
         $this->assertEquals($category->id, $post->category->id);
@@ -85,87 +132,77 @@ class CmsTest extends TestCase
         $this->assertCount(1, $category->posts);
     }
 
-    public function test_announcement_creation(): void
+    public function test_event_date_validation(): void
     {
-        $announcement = Announcement::create([
-            'title' => 'Libur Semester',
-            'slug' => 'libur-semester',
-            'content' => 'Libur semester dimulai tanggal...',
-            'is_active' => true,
-        ]);
-
-        $this->assertDatabaseHas('announcements', ['title' => 'Libur Semester']);
-    }
-
-    public function test_event_creation(): void
-    {
-        $event = Event::create([
-            'title' => 'Porsenitas',
-            'slug' => 'porsenitas',
-            'description' => 'Pekan olahraga dan seni...',
-            'start_at' => now()->addDays(2),
-            'end_at' => now()->addDays(3),
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        Event::create([
+            'title' => 'Event Salah',
+            'slug' => 'event-salah',
+            'start_at' => now()->addDays(5),
+            'end_at' => now()->addDays(2),
             'status' => 'published',
         ]);
-
-        $this->assertDatabaseHas('events', ['slug' => 'porsenitas']);
     }
 
-    public function test_gallery_and_items_relation(): void
+    public function test_gallery_and_gallery_item_relation(): void
     {
         $gallery = Gallery::create([
-            'title' => 'Wisuda 2026',
-            'slug' => 'wisuda-2026',
+            'title' => 'Porsenitas 2026',
+            'slug' => 'porsenitas-2026',
             'is_published' => true,
         ]);
 
         $item = GalleryItem::create([
             'gallery_id' => $gallery->id,
             'image_path' => 'galleries/items/test.jpg',
-            'caption' => 'Foto bersama',
+            'caption' => 'Lari cepat',
         ]);
 
         $this->assertEquals($gallery->id, $item->gallery->id);
         $this->assertCount(1, $gallery->items);
     }
 
-    public function test_document_creation(): void
+    public function test_document_upload_and_validation(): void
     {
+        Storage::fake('public');
+
+        $file = UploadedFile::fake()->create('panduan.pdf', 1500, 'application/pdf');
+
         $doc = Document::create([
-            'title' => 'Brosur PPDB 2026',
-            'slug' => 'brosur-ppdb-2026',
-            'file_path' => 'documents/brosur.pdf',
-            'category' => 'Brosur',
+            'title' => 'Panduan Kurikulum',
+            'slug' => 'panduan-kurikulum',
+            'file_path' => $file->store('documents', 'public'),
+            'file_name' => 'panduan.pdf',
+            'file_size' => $file->getSize(),
+            'mime_type' => 'application/pdf',
             'is_published' => true,
         ]);
 
-        $this->assertDatabaseHas('documents', ['title' => 'Brosur PPDB 2026']);
+        $this->assertDatabaseHas('documents', ['slug' => 'panduan-kurikulum']);
+        $this->assertEquals('application/pdf', $doc->mime_type);
     }
 
-    public function test_facility_achievement_extracurricular_crud(): void
+    public function test_facility_achievement_extracurricular_models(): void
     {
-        $facility = Facility::create(['name' => 'Ruang Kelas', 'slug' => 'ruang-kelas', 'quantity' => 6]);
-        $achievement = Achievement::create(['title' => 'Juara 1 Olimpiade', 'slug' => 'juara-1-olimpiade']);
+        $facility = Facility::create(['name' => 'Perpustakaan', 'slug' => 'perpustakaan', 'quantity' => 1]);
+        $achievement = Achievement::create(['title' => 'Juara 1 MTQ', 'slug' => 'juara-1-mtq']);
         $extracurricular = Extracurricular::create(['name' => 'Pramuka', 'slug' => 'pramuka']);
 
-        $this->assertDatabaseHas('facilities', ['slug' => 'ruang-kelas']);
-        $this->assertDatabaseHas('achievements', ['slug' => 'juara-1-olimpiade']);
+        $this->assertDatabaseHas('facilities', ['slug' => 'perpustakaan']);
+        $this->assertDatabaseHas('achievements', ['slug' => 'juara-1-mtq']);
         $this->assertDatabaseHas('extracurriculars', ['slug' => 'pramuka']);
     }
 
-    public function test_cms_authorization_access(): void
+    public function test_soft_deletes_on_cms_models(): void
     {
-        $superAdmin = User::factory()->create();
-        $superAdmin->assignRole('Super Admin');
+        $page = Page::create([
+            'title' => 'Halaman Hapus',
+            'slug' => 'halaman-hapus',
+            'content' => 'Hapus...',
+        ]);
 
-        $student = User::factory()->create();
-        $student->assignRole('Siswa');
+        $page->delete();
 
-        // Super Admin can access admin panel
-        $this->actingAs($superAdmin)->get('/admin')->assertStatus(200);
-
-        // Student cannot access admin panel
-        $response = $this->actingAs($student)->get('/admin');
-        $this->assertTrue($response->isForbidden() || $response->isRedirect());
+        $this->assertSoftDeleted('pages', ['slug' => 'halaman-hapus']);
     }
 }

@@ -15,7 +15,7 @@ class PostCategoryResource extends Resource
 {
     protected static ?string $model = PostCategory::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-folder';
+    protected static ?string $navigationIcon = 'heroicon-o-tag';
     protected static ?string $navigationGroup = 'Website / CMS';
     protected static ?string $navigationLabel = 'Kategori Berita';
 
@@ -47,7 +47,9 @@ class PostCategoryResource extends Resource
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('slug')->searchable(),
                 Tables\Columns\IconColumn::make('is_active')->boolean(),
-                Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable(),
+                Tables\Columns\TextColumn::make('posts_count')
+                    ->counts('posts')
+                    ->label('Jumlah Post'),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active'),
@@ -72,21 +74,37 @@ class PostCategoryResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU', 'Kepala Madrasah']) || $user->can('manage-website');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU']) || $user->can('manage-website');
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU']) || $user->can('manage-website');
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasRole('Super Admin') || $user->can('manage-website');
     }
 }

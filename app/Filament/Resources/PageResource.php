@@ -17,7 +17,7 @@ class PageResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationGroup = 'Website / CMS';
-    protected static ?string $navigationLabel = 'Halaman';
+    protected static ?string $navigationLabel = 'Halaman Statis';
 
     public static function form(Form $form): Form
     {
@@ -32,29 +32,23 @@ class PageResource extends Resource
                     ->required()
                     ->maxLength(255)
                     ->unique(ignoreRecord: true),
+                Forms\Components\Textarea::make('excerpt')
+                    ->columnSpanFull(),
                 Forms\Components\RichEditor::make('content')
                     ->required()
                     ->columnSpanFull(),
-                Forms\Components\Textarea::make('excerpt')
-                    ->columnSpanFull(),
-                Forms\Components\FileUpload::make('featured_image')
-                    ->image()
-                    ->directory('pages'),
-                Forms\Components\Select::make('status')
+                Forms\Components\Select::make('template')
                     ->options([
-                        'draft' => 'Draft',
-                        'published' => 'Published',
+                        'default' => 'Default Template',
+                        'full-width' => 'Full Width',
+                        'sidebar' => 'With Sidebar',
                     ])
                     ->required()
-                    ->default('draft'),
+                    ->default('default'),
+                Forms\Components\Toggle::make('is_published')
+                    ->required()
+                    ->default(true),
                 Forms\Components\DateTimePicker::make('published_at'),
-                Forms\Components\TextInput::make('seo_title')
-                    ->maxLength(255),
-                Forms\Components\Textarea::make('seo_description')
-                    ->columnSpanFull(),
-                Forms\Components\TextInput::make('sort_order')
-                    ->numeric()
-                    ->default(0),
             ]);
     }
 
@@ -64,20 +58,12 @@ class PageResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('title')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('slug')->searchable(),
-                Tables\Columns\BadgeColumn::make('status')
-                    ->colors([
-                        'danger' => 'draft',
-                        'success' => 'published',
-                    ]),
+                Tables\Columns\IconColumn::make('is_published')->boolean(),
                 Tables\Columns\TextColumn::make('published_at')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
-                    ->options([
-                        'draft' => 'Draft',
-                        'published' => 'Published',
-                    ]),
+                Tables\Filters\TernaryFilter::make('is_published'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -99,21 +85,37 @@ class PageResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->hasRole('Kepala Madrasah') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU', 'Kepala Madrasah']) || $user->can('manage-website');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU']) || $user->can('manage-website');
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU']) || $user->can('manage-website');
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->can('manage-website'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasRole('Super Admin') || $user->can('manage-website');
     }
 }

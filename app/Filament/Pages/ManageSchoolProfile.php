@@ -65,7 +65,11 @@ class ManageSchoolProfile extends Page
                     ]),
                 Forms\Components\Section::make('Media & Logo')
                     ->schema([
-                        Forms\Components\FileUpload::make('logo')->image()->directory('school'),
+                        Forms\Components\FileUpload::make('logo')
+                            ->image()
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->maxSize(5120)
+                            ->directory('school'),
                     ]),
             ])
             ->statePath('data');
@@ -73,6 +77,11 @@ class ManageSchoolProfile extends Page
 
     public function submit(): void
     {
+        $user = auth()->user();
+        if (!$user || !$user->is_active || (!$user->hasAnyRole(['Super Admin', 'Admin/TU']) && !$user->can('manage-school-profile'))) {
+            abort(403);
+        }
+
         $data = $this->form->getState();
         $profile = SchoolProfile::firstOrNew(['id' => 1]);
         $profile->fill($data);
@@ -86,6 +95,10 @@ class ManageSchoolProfile extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->check() && (auth()->hasRole('Super Admin') || auth()->hasRole('Admin/TU') || auth()->hasRole('Kepala Madrasah') || auth()->can('manage-school-profile'));
+        $user = auth()->user();
+        if (!$user || !$user->is_active) {
+            return false;
+        }
+        return $user->hasAnyRole(['Super Admin', 'Admin/TU', 'Kepala Madrasah']) || $user->can('manage-school-profile') || $user->can('manage-website');
     }
 }
