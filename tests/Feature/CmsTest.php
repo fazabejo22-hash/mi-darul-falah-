@@ -16,6 +16,7 @@ use App\Models\Achievement;
 use App\Models\Extracurricular;
 use App\Models\SchoolProfile;
 use App\Filament\Resources\EventResource\Pages\ManageEvents;
+use App\Filament\Resources\DocumentResource\Pages\ManageDocuments;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SchoolProfileSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -190,24 +191,73 @@ class CmsTest extends TestCase
         $this->assertCount(1, $gallery->items);
     }
 
-    public function test_document_upload_and_validation(): void
+    public function test_document_upload_validation_fails_with_invalid_file_type(): void
     {
         Storage::fake('public');
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
 
-        $file = UploadedFile::fake()->create('panduan.pdf', 1500, 'application/pdf');
+        $fakePhpFile = UploadedFile::fake()->create('malicious.php', 100, 'application/x-php');
 
-        $doc = Document::create([
-            'title' => 'Panduan Kurikulum',
-            'slug' => 'panduan-kurikulum',
-            'file_path' => $file->store('documents', 'public'),
-            'file_name' => 'panduan.pdf',
-            'file_size' => $file->getSize(),
-            'mime_type' => 'application/pdf',
-            'is_published' => true,
-        ]);
+        Livewire::actingAs($admin)
+            ->test(ManageDocuments::class)
+            ->callAction('create', data: [
+                'title' => 'Dokumen Malicious',
+                'slug' => 'dokumen-malicious',
+                'file_path' => $fakePhpFile,
+                'is_published' => true,
+            ])
+            ->assertHasActionErrors(['file_path']);
 
-        $this->assertDatabaseHas('documents', ['slug' => 'panduan-kurikulum']);
-        $this->assertEquals('application/pdf', $doc->mime_type);
+        $this->assertDatabaseMissing('documents', ['slug' => 'dokumen-malicious']);
+    }
+
+    public function test_document_upload_succeeds_with_valid_pdf(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+
+        $fakePdf = UploadedFile::fake()->create('panduan.pdf', 500, 'application/pdf');
+
+        Livewire::actingAs($admin)
+            ->test(ManageDocuments::class)
+            ->callAction('create', data: [
+                'title' => 'Panduan Resmi',
+                'slug' => 'panduan-resmi',
+                'file_path' => $fakePdf,
+                'is_published' => true,
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertDatabaseHas('documents', ['slug' => 'panduan-resmi']);
+    }
+
+    public function test_cms_resource_server_side_authorization(): void
+    {
+        $student = User::factory()->create();
+        $student->assignRole('Siswa');
+
+        $parent = User::factory()->create();
+        $parent->assignRole('Orang Tua/Wali');
+
+        $inactive = User::factory()->create(['is_active' => false]);
+        $inactive->assignRole('Super Admin');
+
+        // Student cannot access ManageDocuments
+        Livewire::actingAs($student)
+            ->test(ManageDocuments::class)
+            ->assertForbidden();
+
+        // Parent cannot access ManageDocuments
+        Livewire::actingAs($parent)
+            ->test(ManageDocuments::class)
+            ->assertForbidden();
+
+        // Inactive Super Admin cannot access ManageDocuments
+        Livewire::actingAs($inactive)
+            ->test(ManageDocuments::class)
+            ->assertForbidden();
     }
 
     public function test_facility_achievement_extracurricular_models(): void
