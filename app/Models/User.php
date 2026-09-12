@@ -38,13 +38,17 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        // Only allow staff, admins, and headmaster to access admin panel
+        // Inactive accounts must never be allowed into the administration panel.
+        if (! $this->is_active) {
+            return false;
+        }
+
         return $this->hasAnyRole([
             'Super Admin',
             'Admin/TU',
             'Kepala Madrasah',
             'Guru',
-            'Wali Kelas'
+            'Wali Kelas',
         ]);
     }
 }
