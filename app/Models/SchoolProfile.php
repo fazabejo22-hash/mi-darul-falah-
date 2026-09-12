@@ -18,6 +18,10 @@ class SchoolProfile extends Model
         'email',
         'headmaster',
         'vision',
+        'mission',
+        'history',
+        'logo',
+        'map_url',
         'extracurriculars',
         'facilities',
     ];

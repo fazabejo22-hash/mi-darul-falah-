@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Page extends Model
+class Announcement extends Model
 {
     use SoftDeletes;
 
@@ -14,18 +14,18 @@ class Page extends Model
         'title',
         'slug',
         'content',
-        'excerpt',
-        'featured_image',
-        'status',
-        'published_at',
-        'seo_title',
-        'seo_description',
-        'sort_order',
+        'start_at',
+        'end_at',
+        'is_active',
+        'is_pinned',
         'created_by',
     ];
 
     protected $casts = [
-        'published_at' => 'datetime',
+        'start_at' => 'datetime',
+        'end_at' => 'datetime',
+        'is_active' => 'boolean',
+        'is_pinned' => 'boolean',
     ];
 
     public function creator(): BelongsTo

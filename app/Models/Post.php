@@ -2,14 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Post extends Model
 {
-    use HasFactory, SoftDeletes;
+    use SoftDeletes;
 
     protected $fillable = [
         'post_category_id',
@@ -22,17 +21,14 @@ class Post extends Model
         'status',
         'published_at',
         'is_featured',
-        'meta_title',
-        'meta_description',
+        'seo_title',
+        'seo_description',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'published_at' => 'datetime',
-            'is_featured' => 'boolean',
-        ];
-    }
+    protected $casts = [
+        'published_at' => 'datetime',
+        'is_featured' => 'boolean',
+    ];
 
     public function category(): BelongsTo
     {
@@ -42,5 +38,10 @@ class Post extends Model
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
+    }
+
+    public function scopePublished($query)
+    {
+        return $query->where('status', 'published')->whereNotNull('published_at')->where('published_at', '<=', now());
     }
 }

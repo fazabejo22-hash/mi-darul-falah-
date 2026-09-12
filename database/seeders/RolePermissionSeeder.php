@@ -12,6 +12,7 @@ class RolePermissionSeeder extends Seeder
     {
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
+        // Define Roles as requested
         $roles = [
             'Super Admin',
             'Admin/TU',
@@ -26,6 +27,7 @@ class RolePermissionSeeder extends Seeder
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
+        // Define Basic Permissions including CMS manage-website
         $permissions = [
             'manage-system',
             'manage-users',
@@ -42,7 +44,17 @@ class RolePermissionSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
+        // Assign all permissions to Super Admin
         $superAdmin = Role::findByName('Super Admin');
         $superAdmin->givePermissionTo(Permission::all());
+
+        // Assign CMS permissions to Admin/TU
+        $adminTu = Role::findByName('Admin/TU');
+        $adminTu->givePermissionTo([
+            'manage-school-profile',
+            'manage-website',
+            'manage-academic',
+            'view-reports',
+        ]);
     }
 }
