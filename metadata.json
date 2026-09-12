@@ -1,6 +1,6 @@
 {
   "name": "Sistem Informasi Terpadu MI Darul Falah",
-  "description": "Sistem Informasi Terpadu Madrasah Ibtidaiyah Darul Falah - Laravel 11 & Filament v3 Foundation",
+  "description": "Website Publik & Sistem Informasi Terpadu Madrasah Ibtidaiyah Darul Falah - Phase 3 Complete",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
