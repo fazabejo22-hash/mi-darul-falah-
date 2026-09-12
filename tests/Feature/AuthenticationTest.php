@@ -11,24 +11,24 @@ class AuthenticationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_login_screen_can_be_rendered(): void
+    public function test_filament_login_screen_can_be_rendered(): void
     {
-        $response = $this->get('/login');
+        $response = $this->get('/admin/login');
         $response->assertStatus(200);
     }
 
-    public function test_users_can_authenticate_using_the_login_screen(): void
+    public function test_users_can_authenticate_using_filament_login(): void
     {
         $user = User::factory()->create([
             'password' => Hash::make('password123'),
         ]);
 
-        $response = $this->post('/login', [
-            'email' => $user->email,
-            'password' => 'password123',
+        $response = $this->post('/admin/login', [
+            'data.email' => $user->email,
+            'data.password' => 'password123',
         ]);
 
-        $this->assertAuthenticated();
+        $this->assertAuthenticatedAs($user);
         $response->assertRedirect('/admin');
     }
 
@@ -38,9 +38,9 @@ class AuthenticationTest extends TestCase
             'password' => Hash::make('password123'),
         ]);
 
-        $this->post('/login', [
-            'email' => $user->email,
-            'password' => 'wrong-password',
+        $this->post('/admin/login', [
+            'data.email' => $user->email,
+            'data.password' => 'wrong-password',
         ]);
 
         $this->assertGuest();
