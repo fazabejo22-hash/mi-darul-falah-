@@ -32,23 +32,33 @@ class PageResource extends Resource
                     ->required()
                     ->maxLength(255)
                     ->unique(ignoreRecord: true),
+                Forms\Components\Hidden::make('created_by')
+                    ->default(fn () => auth()->id()),
                 Forms\Components\Textarea::make('excerpt')
                     ->columnSpanFull(),
                 Forms\Components\RichEditor::make('content')
                     ->required()
                     ->columnSpanFull(),
-                Forms\Components\Select::make('template')
+                Forms\Components\FileUpload::make('featured_image')
+                    ->image()
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->maxSize(5120)
+                    ->directory('pages'),
+                Forms\Components\Select::make('status')
                     ->options([
-                        'default' => 'Default Template',
-                        'full-width' => 'Full Width',
-                        'sidebar' => 'With Sidebar',
+                        'draft' => 'Draft',
+                        'published' => 'Published',
                     ])
                     ->required()
-                    ->default('default'),
-                Forms\Components\Toggle::make('is_published')
-                    ->required()
-                    ->default(true),
+                    ->default('draft'),
                 Forms\Components\DateTimePicker::make('published_at'),
+                Forms\Components\TextInput::make('seo_title')
+                    ->maxLength(255),
+                Forms\Components\Textarea::make('seo_description')
+                    ->columnSpanFull(),
+                Forms\Components\TextInput::make('sort_order')
+                    ->numeric()
+                    ->default(0),
             ]);
     }
 
@@ -58,12 +68,21 @@ class PageResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('title')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('slug')->searchable(),
-                Tables\Columns\IconColumn::make('is_published')->boolean(),
+                Tables\Columns\BadgeColumn::make('status')
+                    ->colors([
+                        'danger' => 'draft',
+                        'success' => 'published',
+                    ]),
+                Tables\Columns\TextColumn::make('sort_order')->sortable(),
                 Tables\Columns\TextColumn::make('published_at')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
             ->filters([
-                Tables\Filters\TernaryFilter::make('is_published'),
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'draft' => 'Draft',
+                        'published' => 'Published',
+                    ]),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -116,6 +135,6 @@ class PageResource extends Resource
         if (!$user || !$user->is_active) {
             return false;
         }
-        return $user->hasRole('Super Admin') || $user->can('manage-website');
+        return $user->hasRole('Super Admin'); // Destructive delete restricted to Super Admin
     }
 }

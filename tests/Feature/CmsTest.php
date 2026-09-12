@@ -17,6 +17,7 @@ use App\Models\Extracurricular;
 use App\Models\SchoolProfile;
 use App\Filament\Resources\EventResource\Pages\ManageEvents;
 use App\Filament\Resources\DocumentResource\Pages\ManageDocuments;
+use App\Filament\Resources\PageResource\Pages\ManagePages;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SchoolProfileSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -93,16 +94,30 @@ class CmsTest extends TestCase
         $this->assertTrue($response->isForbidden() || $response->isRedirect());
     }
 
-    public function test_page_creation_and_slug_uniqueness(): void
+    public function test_page_creation_via_filament_action_and_slug_uniqueness(): void
     {
-        Page::create([
-            'title' => 'Profil Sekolah',
-            'slug' => 'profil-sekolah',
-            'content' => 'Konten profil...',
-            'is_published' => true,
-        ]);
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
 
-        $this->assertDatabaseHas('pages', ['slug' => 'profil-sekolah']);
+        Livewire::actingAs($admin)
+            ->test(ManagePages::class)
+            ->callAction('create', data: [
+                'title' => 'Profil Sekolah',
+                'slug' => 'profil-sekolah',
+                'content' => 'Konten profil madrasah...',
+                'status' => 'published',
+                'seo_title' => 'Profil MI Darul Falah',
+                'sort_order' => 1,
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertDatabaseHas('pages', [
+            'slug' => 'profil-sekolah',
+            'status' => 'published',
+            'seo_title' => 'Profil MI Darul Falah',
+            'sort_order' => 1,
+            'created_by' => $admin->id,
+        ]);
 
         $this->expectException(\Illuminate\Database\QueryException::class);
         Page::create([
@@ -133,6 +148,42 @@ class CmsTest extends TestCase
         $this->assertEquals($category->id, $post->category->id);
         $this->assertEquals($author->id, $post->author->id);
         $this->assertCount(1, $category->posts);
+    }
+
+    public function test_announcement_pinned_and_priority(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+
+        $announcement = Announcement::create([
+            'title' => 'Pengumuman Penting',
+            'slug' => 'pengumuman-penting',
+            'content' => 'Isi pengumuman...',
+            'is_pinned' => true,
+            'priority' => 10,
+            'created_by' => $admin->id,
+        ]);
+
+        $this->assertDatabaseHas('announcements', [
+            'slug' => 'pengumuman-penting',
+            'is_pinned' => true,
+            'priority' => 10,
+        ]);
+    }
+
+    public function test_achievement_with_category(): void
+    {
+        $achievement = Achievement::create([
+            'title' => 'Juara 1 MTQ',
+            'slug' => 'juara-1-mtq',
+            'category' => 'Akademik',
+            'level' => 'Kabupaten',
+        ]);
+
+        $this->assertDatabaseHas('achievements', [
+            'slug' => 'juara-1-mtq',
+            'category' => 'Akademik',
+        ]);
     }
 
     public function test_event_validation_fails_when_end_at_is_before_start_at(): void
@@ -235,6 +286,9 @@ class CmsTest extends TestCase
 
     public function test_cms_resource_server_side_authorization(): void
     {
+        $kepala = User::factory()->create();
+        $kepala->assignRole('Kepala Madrasah');
+
         $student = User::factory()->create();
         $student->assignRole('Siswa');
 
@@ -243,6 +297,10 @@ class CmsTest extends TestCase
 
         $inactive = User::factory()->create(['is_active' => false]);
         $inactive->assignRole('Super Admin');
+
+        // Kepala Madrasah can view any, but cannot create (canCreate returns false for Kepala Madrasah)
+        $this->assertTrue(ManagePages::canViewAny());
+        $this->assertFalse(ManagePages::canCreate());
 
         // Student cannot access ManageDocuments
         Livewire::actingAs($student)
@@ -263,7 +321,7 @@ class CmsTest extends TestCase
     public function test_facility_achievement_extracurricular_models(): void
     {
         $facility = Facility::create(['name' => 'Perpustakaan', 'slug' => 'perpustakaan', 'quantity' => 1]);
-        $achievement = Achievement::create(['title' => 'Juara 1 MTQ', 'slug' => 'juara-1-mtq']);
+        $achievement = Achievement::create(['title' => 'Juara 1 MTQ', 'slug' => 'juara-1-mtq', 'category' => 'Akademik']);
         $extracurricular = Extracurricular::create(['name' => 'Pramuka', 'slug' => 'pramuka']);
 
         $this->assertDatabaseHas('facilities', ['slug' => 'perpustakaan']);

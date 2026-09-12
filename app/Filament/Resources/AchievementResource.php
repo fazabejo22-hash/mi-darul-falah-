@@ -32,6 +32,9 @@ class AchievementResource extends Resource
                     ->required()
                     ->maxLength(255)
                     ->unique(ignoreRecord: true),
+                Forms\Components\TextInput::make('category')
+                    ->maxLength(255)
+                    ->placeholder('Contoh: Akademik, Olahraga, Seni'),
                 Forms\Components\TextInput::make('recipient_name')
                     ->maxLength(255)
                     ->label('Nama Penerima / Siswa / Tim'),
@@ -57,6 +60,7 @@ class AchievementResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('title')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('category')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('recipient_name')->searchable()->label('Penerima'),
                 Tables\Columns\TextColumn::make('level')->searchable(),
                 Tables\Columns\TextColumn::make('achievement_date')->date()->sortable(),
@@ -64,6 +68,8 @@ class AchievementResource extends Resource
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_published'),
+                Tables\Filters\SelectFilter::make('category')
+                    ->options(fn () => Achievement::distinct()->pluck('category', 'category')->toArray()),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -116,6 +122,6 @@ class AchievementResource extends Resource
         if (!$user || !$user->is_active) {
             return false;
         }
-        return $user->hasRole('Super Admin') || $user->can('manage-website');
+        return $user->hasRole('Super Admin');
     }
 }

@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
 
 class AnnouncementResource extends Resource
 {
@@ -24,7 +25,14 @@ class AnnouncementResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('title')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(fn (string $operation, $state, Forms\Set $set) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
+                Forms\Components\TextInput::make('slug')
+                    ->maxLength(255)
+                    ->unique(ignoreRecord: true),
+                Forms\Components\Hidden::make('created_by')
+                    ->default(fn () => auth()->id()),
                 Forms\Components\RichEditor::make('content')
                     ->required()
                     ->columnSpanFull(),
@@ -34,6 +42,12 @@ class AnnouncementResource extends Resource
                 Forms\Components\Toggle::make('is_active')
                     ->required()
                     ->default(true),
+                Forms\Components\Toggle::make('is_pinned')
+                    ->required()
+                    ->default(false),
+                Forms\Components\TextInput::make('priority')
+                    ->numeric()
+                    ->default(0),
             ]);
     }
 
@@ -43,11 +57,14 @@ class AnnouncementResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('title')->searchable()->sortable(),
                 Tables\Columns\IconColumn::make('is_active')->boolean(),
+                Tables\Columns\IconColumn::make('is_pinned')->boolean(),
+                Tables\Columns\TextColumn::make('priority')->sortable(),
                 Tables\Columns\TextColumn::make('start_at')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('end_at')->dateTime()->sortable(),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active'),
+                Tables\Filters\TernaryFilter::make('is_pinned'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -100,6 +117,6 @@ class AnnouncementResource extends Resource
         if (!$user || !$user->is_active) {
             return false;
         }
-        return $user->hasRole('Super Admin') || $user->can('manage-website');
+        return $user->hasRole('Super Admin');
     }
 }
