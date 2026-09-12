@@ -15,11 +15,13 @@ use App\Models\Facility;
 use App\Models\Achievement;
 use App\Models\Extracurricular;
 use App\Models\SchoolProfile;
+use App\Filament\Resources\EventResource\Pages\ManageEvents;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SchoolProfileSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class CmsTest extends TestCase
@@ -132,16 +134,40 @@ class CmsTest extends TestCase
         $this->assertCount(1, $category->posts);
     }
 
-    public function test_event_date_validation(): void
+    public function test_event_validation_fails_when_end_at_is_before_start_at(): void
     {
-        $this->expectException(\Illuminate\Database\QueryException::class);
-        Event::create([
-            'title' => 'Event Salah',
-            'slug' => 'event-salah',
-            'start_at' => now()->addDays(5),
-            'end_at' => now()->addDays(2),
-            'status' => 'published',
-        ]);
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+
+        Livewire::actingAs($admin)
+            ->test(ManageEvents::class)
+            ->set('data.title', 'Event Invalid')
+            ->set('data.slug', 'event-invalid')
+            ->set('data.start_at', now()->addDays(5)->toDateTimeString())
+            ->set('data.end_at', now()->addDays(2)->toDateTimeString())
+            ->set('data.status', 'published')
+            ->call('create')
+            ->assertHasFormErrors(['end_at']);
+
+        $this->assertDatabaseMissing('events', ['slug' => 'event-invalid']);
+    }
+
+    public function test_event_can_be_created_with_valid_dates(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+
+        Livewire::actingAs($admin)
+            ->test(ManageEvents::class)
+            ->set('data.title', 'Event Valid')
+            ->set('data.slug', 'event-valid')
+            ->set('data.start_at', now()->addDays(5)->toDateTimeString())
+            ->set('data.end_at', now()->addDays(6)->toDateTimeString())
+            ->set('data.status', 'published')
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('events', ['slug' => 'event-valid']);
     }
 
     public function test_gallery_and_gallery_item_relation(): void
