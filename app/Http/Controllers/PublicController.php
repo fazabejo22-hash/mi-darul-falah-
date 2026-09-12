@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Routing\Controller;
 use App\Models\SchoolProfile;
 use App\Models\Page;
 use App\Models\Post;
@@ -14,19 +15,19 @@ use App\Models\Achievement;
 use App\Models\Extracurricular;
 use Illuminate\Http\Request;
 
-class PublicController extends class_exists(\Illuminate\Routing\Controller::class) ? \Illuminate\Routing\Controller::class : object
+class PublicController extends Controller
 {
     protected function getSharedData()
     {
         return [
             'schoolProfile' => SchoolProfile::first() ?? new SchoolProfile([
-                'name' => 'Madrasah Ibtidaiyah Darul Falah',
-                'npsn' => '69881899',
-                'phone' => '(0322) 551234',
-                'email' => 'info@midarulfalah.sch.id',
-                'address' => 'Jl. Pendidikan No. 12, Lamongan, Jawa Timur',
-                'accreditation' => 'A (Unggul)',
-                'headmaster' => 'Drs. Ach. Azhari, M.Pd.I',
+                'name' => 'Madrasah',
+                'npsn' => '-',
+                'phone' => '-',
+                'email' => '-',
+                'address' => '-',
+                'accreditation' => '-',
+                'headmaster' => '-',
             ]),
         ];
     }
